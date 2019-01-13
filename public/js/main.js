@@ -4,7 +4,7 @@ $(document).ready( function() {
     target: 'https://linkstorm-res-test.herokuapp.com/resumable',
     fileType: ['gif', 'jpg', 'png', 'jpeg'],
     chunkSize: 128*1024,
-    simultaneousUploads: 2,
+    simultaneousUploads: 100,
     setChunkTypeFromFile: true,
     prioritizeFirstAndLastChunk: true
   });
