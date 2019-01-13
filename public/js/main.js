@@ -8,4 +8,6 @@ $(document).ready( function() {
     setChunkTypeFromFile: true,
     prioritizeFirstAndLastChunk: true
   });
+
+  console.log(zone);
 });
