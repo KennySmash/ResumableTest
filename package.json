@@ -1,0 +1,25 @@
+{
+  "name": "resumable",
+  "version": "1.0.0",
+  "description": "Resumable uploads to S3",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eksoverzero/resumable.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/eksoverzero/resumable/issues"
+  },
+  "homepage": "https://github.com/eksoverzero/resumable#readme",
+  "dependencies": {
+    "aws-sdk": "^2.259.1",
+    "connect-multiparty": "^2.1.1",
+    "express": "^4.16.3"
+  }
+}
