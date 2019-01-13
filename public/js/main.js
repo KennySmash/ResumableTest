@@ -1,5 +1,5 @@
 $(document).ready( function() {
-  $('.dropzone').ṛesumable({
+  var zone = $('.dropzone').ṛesumable({
     query: { path: '10/1' },
     target: 'https://linkstorm-res-test.herokuapp.com/resumable',
     fileType: ['gif', 'jpg', 'png', 'jpeg'],
