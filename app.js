@@ -50,8 +50,8 @@ app.get('/resumable', function(req, res) {
   });
 });
 
-app.get('/bucket/status', function(req, res){
-  res.send({'fileListing': listFiles});
+app.get('/bucketStatus', function(req, res){
+  res.send({'DidItWork': "maybe"});
 });
 
 app.post('/resumable', function(req, res) {
