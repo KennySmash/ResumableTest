@@ -47,14 +47,14 @@
     <script src="js/resumable.js"></script>
     <script src="js/jquery.resumable.js"></script>
     <script>
-      import vue2Dropzone from './components/vue2Dropzone.js';
+      
       import './components/vue2Dropzone.min.css';
 
       var Cloudburst = new Vue({
         el: '#app',
         name: 'cloudburst',
         components: {
-          vue2Dropzone: vue2Dropzone
+          vue2Dropzone: './components/vue2Dropzone.js'
         },
         data: function(){
           return {
