@@ -21,6 +21,7 @@ app.use(function (req, res, next) {
 });
 
 app.get('/resumable', function(req, res) {
+  console.log('recieved Request', req, res);
   var params = req.query;
 
   var folder = params.path,
