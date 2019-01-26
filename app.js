@@ -8,6 +8,7 @@ var config = require('./config'),
     checkFile = require('./lib/checkFile'),
     createFile = require('./lib/createFile'),
     mergeFiles = require('./lib/mergeFiles'),
+    listFiles = require('./lib/listFiles'),
     getChunkFilename = require('./lib/getChunkFilename');
 
 var app = express();
@@ -21,7 +22,6 @@ app.use(function (req, res, next) {
 });
 
 app.get('/resumable', function(req, res) {
-  console.log('recieved Request', req, res);
   var params = req.query;
 
   var folder = params.path,
@@ -50,7 +50,12 @@ app.get('/resumable', function(req, res) {
   });
 });
 
+app.get('/bucket/status', function(req, res){
+  res.send({'fileListing': listFiles});
+});
+
 app.post('/resumable', function(req, res) {
+
   var params = req.query;
 
   var folder = params.path,
