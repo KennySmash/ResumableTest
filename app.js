@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 var fs = require('fs'),
     express = require('express'),
@@ -14,7 +14,7 @@ var config = require('./config'),
 var app = express();
 
 app.use(multipart());
-app.use(express.static(__dirname + '/public'));
+app.use(express.static(__dirname + '/cloudfront/public'));
 
 app.use(function (req, res, next) {
   res.header('Access-Control-Allow-Origin', '*');
