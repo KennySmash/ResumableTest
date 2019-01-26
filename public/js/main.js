@@ -11,7 +11,10 @@ $(document).ready( function() {
 
   console.log(zone);
 
-  $.get('https://linkstorm.res-test.herokuapp.com/bucket/status', function(response){
-    console.log('status GET', response);
-  })
+  axios.get('https://linkstorm.res-test.herokuapp.com/bucket/status')
+    .then(function(response){
+      console.log('status GET', response);
+    }).catch( function (error){
+      console.error(error);
+    })
 });
