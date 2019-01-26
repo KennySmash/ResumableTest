@@ -9,7 +9,7 @@ $(document).ready( function() {
     prioritizeFirstAndLastChunk: true
   });
 
-  axios.get('https://linkstorm.res-test.herokuapp.com/bucketStatus')
+  axios.get('/bucketStatus')
     .then(function(response){
       console.log('status GET', response);
     }).catch( function (error){
