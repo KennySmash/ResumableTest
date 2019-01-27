@@ -14,7 +14,7 @@ var config = require('./config'),
 var app = express();
 
 app.use(multipart());
-app.use(express.static(__dirname + '/cloudfront/public'));
+app.use(express.static(__dirname + '/cloudfront/dist'));
 
 app.use(function (req, res, next) {
   res.header('Access-Control-Allow-Origin', '*');
@@ -55,7 +55,7 @@ app.get('/bucketStatus', function(req, res){
 });
 
 app.get('/buildTheme', function(req, res){
-  
+
 })
 
 app.post('/resumable', function(req, res) {
