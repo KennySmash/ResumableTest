@@ -54,6 +54,10 @@ app.get('/bucketStatus', function(req, res){
   res.send({'DidItWork': "maybe"});
 });
 
+app.get('/buildTheme', function(req, res){
+  
+})
+
 app.post('/resumable', function(req, res) {
 
   var params = req.query;
