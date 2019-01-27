@@ -9,7 +9,7 @@
             <p class="card-text">
               Data is gonna go here soon
             </p>
-            <b-button href="#" variant="primary">Refresh</b-button>
+            <b-button href="#" :click="getBucketStats" variant="primary">Refresh</b-button>
           </b-card>
           <b-card title="Dropzone"
               tag="article"
@@ -30,7 +30,9 @@
             <b-button href="#" variant="warning">Tidy List</b-button>
           </b-card>
           <b-card class="mb-2">
-            
+            <div class='file-list' :key="file.id" v-for="file in myFiles">
+              {{ file }}
+            </div>
           </b-card>
         </div>
       </div>
@@ -49,11 +51,27 @@ export default {
     vueDropzone: vue2Dropzone
   },
   methods: {
-       
+       getBucketStats: function (){
+          this.$socket.emit('emit_method', {
+            message: 'hi'
+          })
+       }
   },
   data: function () {
     return {
-      myFiles: {},
+      bucketStats: {
+        name: '',
+        totalSpace: '',
+        usedSpace: '',
+      },
+      myFiles: {
+          0 : {
+            id: 1,
+            name: 'meep.jpg',
+            size: 1500203,
+            progress: 0
+          }
+      },
       dropzoneOptions: {
         url: 'https://linkstorm-res-test.herokuapp.com/resumable',
         thumbnailWidth: 150,
@@ -74,12 +92,7 @@ export default {
 @import '../node_modules/bootstrap-vue/dist/bootstrap-vue.css';
 @import '../node_modules/bootstrap/scss/bootstrap.scss';
 @import '../node_modules/vue2-dropzone/dist/vue2Dropzone.min.css';
-#app {
-  font-family: 'Avenir', Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
+#app{
+  margin-top: 15px;
 }
 </style>

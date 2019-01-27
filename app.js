@@ -2,7 +2,8 @@
 
 var fs = require('fs'),
     express = require('express'),
-    multipart = require('connect-multiparty');
+    multipart = require('connect-multiparty'),
+    WebSocket = require('ws');
 
 var config = require('./config'),
     checkFile = require('./lib/checkFile'),
@@ -12,6 +13,28 @@ var config = require('./config'),
     getChunkFilename = require('./lib/getChunkFilename');
 
 var app = express();
+var wss = new WebSocket.Server({
+  port: 8090,
+  perMessageDeflate: {
+    zlibDeflateOptions: {
+      // See zlib defaults.
+      chunkSize: 1024,
+      memLevel: 7,
+      level: 3
+    },
+    zlibInflateOptions: {
+      chunkSize: 10 * 1024
+    },
+    // Other options settable:
+    clientNoContextTakeover: true, // Defaults to negotiated value.
+    serverNoContextTakeover: true, // Defaults to negotiated value.
+    serverMaxWindowBits: 10, // Defaults to negotiated value.
+    // Below options specified as default values.
+    concurrencyLimit: 10, // Limits zlib concurrency for perf.
+    threshold: 1024 // Size (in bytes) below which messages
+    // should not be compressed.
+  }
+})
 
 app.use(multipart());
 app.use(express.static(__dirname + '/cloudfront/dist'));
@@ -87,4 +110,8 @@ app.post('/resumable', function(req, res) {
 
 app.listen(config.port, function() {
   console.log(`Server listening on port ${config.port}`);
+});
+
+wss.on('open', function open(){
+  
 });
