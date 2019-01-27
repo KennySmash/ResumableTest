@@ -113,5 +113,5 @@ app.listen(config.port, function() {
 });
 
 wss.on('open', function open(){
-  
+  console.log('socket got touched');
 });

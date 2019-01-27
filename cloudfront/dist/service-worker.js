@@ -14,7 +14,7 @@
 importScripts("https://storage.googleapis.com/workbox-cdn/releases/3.6.3/workbox-sw.js");
 
 importScripts(
-  "/precache-manifest.9a4a5151542b62340f4b5818a1eb23c2.js"
+  "/precache-manifest.ebfe2417017b12ded25f48910e8d639f.js"
 );
 
 workbox.core.setCacheNameDetails({prefix: "cloudfront"});
