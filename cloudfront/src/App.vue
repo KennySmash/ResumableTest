@@ -9,7 +9,19 @@
             <p class="card-text">
               Data is gonna go here soon
             </p>
-            <b-button href="#" :click="getBucketStats" variant="primary">Refresh</b-button>
+            <b-button @click="getBucketStats" variant="primary">Refresh</b-button>
+          </b-card>
+          <b-card title="Settings"
+              tag="article"
+              class="mb-2">
+            <div class="card-text">
+              <div class="form-group row">
+                <label for="chunkSize" class="col-2 col-form-label">Chunk size (in kB)</label>
+                <div class="col-5">
+                  <input type="text" class="form-control" id="chunkSize" v-model.number="bucketStats.chunkSize" />
+                </div> 
+              </div>
+            </div>
           </b-card>
           <b-card title="Dropzone"
               tag="article"
@@ -17,7 +29,7 @@
             <p class="card-text">
               Drop your files here
             </p>
-            <vue-dropzone ref="myVueDropzone" id="dropzone" :options="dropzoneOptions"></vue-dropzone>
+            <input @change="onFileChange" type="file" accept="image/*" multiple="true" />
           </b-card>
         </div>
         <div class="col-md-4">
@@ -29,33 +41,114 @@
             <b-button href="#" variant="danger">Cancel All</b-button>&nbsp;
             <b-button href="#" variant="warning">Tidy List</b-button>
           </b-card>
-          <b-card class="mb-2">
-            <div class='file-list' :key="file.id" v-for="file in myFiles">
-              {{ file }}
-            </div>
-          </b-card>
+          <b-list-group class="mb-2">
+            <b-list-group-item class='file-list' :key="file.id" v-for="file in myFiles">
+              <div class="row">
+                <div class="col-12">
+                  {{ file.id }} : {{ file.name }} ({{ formatFileSize(file.size) }})<br/>
+                  <b-progress :value="file.progress"  :max="100" show-progress :animated='file.active'></b-progress>
+                  <div>
+                    <small>Chunks Left :  </small>
+                    <b-badge variant="" 
+                      class="mr-1" 
+                      :class="{'badge-light': chunk.status == 0, 'badge-info': chunk.status == 1, 'badge-danger': chunk.status == 2, 'badge-success': chunk.status == 3}" 
+                      :key="chunk.id" 
+                      v-for="chunk in file.chunkArr" 
+                      :status="chunk.status" >{{ chunk.id }}</b-badge>
+                  </div>
+                </div>
+              </div>
+            </b-list-group-item>
+          </b-list-group>
         </div>
       </div>
         
-      
     </div>
   </div>
 </template>
 
 <script>
-import vue2Dropzone from 'vue2-dropzone';
+// import vue2Dropzone from 'vue2-dropzone';
+import EventBus from './event-bus';
 
 export default {
   name: 'app',
   components: {
-    vueDropzone: vue2Dropzone
+    // vueDropzone: vue2Dropzone
+  },
+  mounted() {
+    const me = this;
+    EventBus.$on('chunkImages', function(payload){
+      console.log('Starting to chunk a image', payload);
+        if (typeof me.$data.myFiles[payload].file != undefined){
+          var chunkArray = []
+          var currentFile = me.$data.myFiles[payload].file;
+          var rawSize = me.$data.bucketStats.chunkSize;
+          var chunkSize = me.calcChunkSize(rawSize);
+              
+          var CCount = Math.ceil(currentFile.size/chunkSize,chunkSize);
+          var currChunk = 0;
+
+          me.$data.myFiles[payload].chunkCount = CCount;
+
+          while (currChunk < CCount){
+            // console.log('chunking that image', currChunk, CCount, currentFile.size);
+            var offset = currChunk * chunkSize;
+            chunkArray.push({
+              id: currChunk,
+              data: currentFile.slice(offset, chunkSize),
+              status: 0
+            })
+            currChunk++;
+          }
+
+          me.$data.myFiles[payload].chunkArr = chunkArray;
+        }
+    });
   },
   methods: {
        getBucketStats: function (){
-          this.$socket.emit('emit_method', {
-            message: 'hi'
+         console.log('getting Status of Bucket')
+          this.axios.get('/bucketStatus',{
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+            },
+          }).then((response) => {
+            console.log(response.data)
           })
-       }
+       },
+       onFileChange(e) {
+        const that = this;
+        for(var i = 0; i < e.target.files.length;i++){
+          var currentFile = e.target.files[i];
+          
+            that.myFiles.push({
+            id: that.currentItems,
+            name: currentFile.name,
+            size: currentFile.size,
+            progress: 0,
+            active: false,
+            chunkCount: 0,
+            checkSum: '',
+            chunkArr: [],
+            file: currentFile
+          });
+          EventBus.$emit('chunkImages', that.currentItems);
+          that.currentItems++;
+        }
+        e.target.files = null;
+      },
+      formatFileSize: function(bytes,decimalPoint) {
+        if(bytes == 0) return '0 Bytes';
+          var k = 1000,
+              dm = decimalPoint || 2,
+              sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'],
+              i = Math.floor(Math.log(bytes) / Math.log(k));
+          return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+      },
+      calcChunkSize: function(number){
+        return number * 1024;
+      }
   },
   data: function () {
     return {
@@ -63,15 +156,13 @@ export default {
         name: '',
         totalSpace: '',
         usedSpace: '',
+        chunkSize: 32
       },
-      myFiles: {
-          0 : {
-            id: 1,
-            name: 'meep.jpg',
-            size: 1500203,
-            progress: 0
-          }
-      },
+      currentItems: 0,
+      rawFiles: [],
+      myFiles: [
+          
+      ],
       dropzoneOptions: {
         url: 'https://linkstorm-res-test.herokuapp.com/resumable',
         thumbnailWidth: 150,

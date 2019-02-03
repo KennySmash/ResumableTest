@@ -74,12 +74,15 @@ app.get('/resumable', function(req, res) {
 });
 
 app.get('/bucketStatus', function(req, res){
-  res.send({'DidItWork': "maybe"});
+  res.header('Access-Control-Allow-Origin', '*');
+  res.send(
+   { 
+    'allowedUsage': 2010001,
+    'currentUsage': 150000,
+    'bucketName': "S3_TEST_BUCKET"
+   }
+  );
 });
-
-app.get('/buildTheme', function(req, res){
-
-})
 
 app.post('/resumable', function(req, res) {
 

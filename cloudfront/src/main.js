@@ -1,4 +1,7 @@
 import Vue from 'vue'
+import axios from 'axios'
+import VueAxios from 'vue-axios'
+
 import App from './App.vue'
 import store from './store'
 import './registerServiceWorker'
@@ -16,6 +19,7 @@ Vue.use(VueSocketIO, {
       mutationPrefix: 'SOCKET_'
     }
 });
+Vue.use(VueAxios, axios);
 
 new Vue({
   store,
