@@ -7,7 +7,8 @@
               tag="article"
               class="mb-2">
             <p class="card-text">
-              Data is gonna go here soon
+              <code v-model="bucketStats.statusObj"></code>
+              <p>App Status : Online</p>
             </p>
             <b-button @click="getBucketStats" variant="primary">Refresh</b-button>
           </b-card>
@@ -68,60 +69,33 @@
 </template>
 
 <script>
-// import vue2Dropzone from 'vue2-dropzone';
 import EventBus from './event-bus';
 
 export default {
   name: 'app',
   components: {
-    // vueDropzone: vue2Dropzone
+
   },
   mounted() {
-    const me = this;
-    EventBus.$on('chunkImages', function(payload){
-      console.log('Starting to chunk a image', payload);
-        if (typeof me.$data.myFiles[payload].file != undefined){
-          var chunkArray = []
-          var currentFile = me.$data.myFiles[payload].file;
-          var rawSize = me.$data.bucketStats.chunkSize;
-          var chunkSize = me.calcChunkSize(rawSize);
-              
-          var CCount = Math.ceil(currentFile.size/chunkSize,chunkSize);
-          var currChunk = 0;
 
-          me.$data.myFiles[payload].chunkCount = CCount;
-
-          while (currChunk < CCount){
-            // console.log('chunking that image', currChunk, CCount, currentFile.size);
-            var offset = currChunk * chunkSize;
-            chunkArray.push({
-              id: currChunk,
-              data: currentFile.slice(offset, chunkSize),
-              status: 0
-            })
-            currChunk++;
-          }
-
-          me.$data.myFiles[payload].chunkArr = chunkArray;
-        }
-    });
   },
   methods: {
        getBucketStats: function (){
+         var that = this;
          console.log('getting Status of Bucket')
           this.axios.get('/bucketStatus',{
+            baseURL: 'http://localhost:3000',
             headers: {
               'Access-Control-Allow-Origin': '*',
             },
           }).then((response) => {
-            console.log(response.data)
+            that.bucketStats.statusObj = response;
           })
        },
        onFileChange(e) {
         const that = this;
         for(var i = 0; i < e.target.files.length;i++){
           var currentFile = e.target.files[i];
-          
             that.myFiles.push({
             id: that.currentItems,
             name: currentFile.name,
@@ -130,10 +104,8 @@ export default {
             active: false,
             chunkCount: 0,
             checkSum: '',
-            chunkArr: [],
             file: currentFile
           });
-          EventBus.$emit('chunkImages', that.currentItems);
           that.currentItems++;
         }
         e.target.files = null;
@@ -156,13 +128,12 @@ export default {
         name: '',
         totalSpace: '',
         usedSpace: '',
-        chunkSize: 32
+        chunkSize: 32,
+        statusObj: {},
       },
       currentItems: 0,
       rawFiles: [],
-      myFiles: [
-          
-      ],
+      myFiles: [],
       dropzoneOptions: {
         url: 'https://linkstorm-res-test.herokuapp.com/resumable',
         thumbnailWidth: 150,

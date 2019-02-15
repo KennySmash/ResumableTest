@@ -2,119 +2,54 @@
 
 var fs = require('fs'),
     express = require('express'),
-    multipart = require('connect-multiparty'),
-    WebSocket = require('ws');
+    AWS = require('aws-sdk'),
+    config = require('./config'),
+    cors = require('cors'),
+    siofu = require('socketio-file-upload');
 
-var config = require('./config'),
-    checkFile = require('./lib/checkFile'),
-    createFile = require('./lib/createFile'),
-    mergeFiles = require('./lib/mergeFiles'),
-    listFiles = require('./lib/listFiles'),
-    getChunkFilename = require('./lib/getChunkFilename');
+    var S3 = new AWS.S3({
+      accessKeyId: config.aws.accessKeyId,
+      secretAccessKey: config.aws.secretAccessKey
+    });
 
 var app = express();
-var wss = new WebSocket.Server({
-  port: 8090,
-  perMessageDeflate: {
-    zlibDeflateOptions: {
-      // See zlib defaults.
-      chunkSize: 1024,
-      memLevel: 7,
-      level: 3
-    },
-    zlibInflateOptions: {
-      chunkSize: 10 * 1024
-    },
-    // Other options settable:
-    clientNoContextTakeover: true, // Defaults to negotiated value.
-    serverNoContextTakeover: true, // Defaults to negotiated value.
-    serverMaxWindowBits: 10, // Defaults to negotiated value.
-    // Below options specified as default values.
-    concurrencyLimit: 10, // Limits zlib concurrency for perf.
-    threshold: 1024 // Size (in bytes) below which messages
-    // should not be compressed.
-  }
-})
+var socket = express().use(siofu.router);
 
-app.use(multipart());
+var queue = {
+  currentQueue : []
+};
+
 app.use(express.static(__dirname + '/cloudfront/dist'));
 
 app.use(function (req, res, next) {
   res.header('Access-Control-Allow-Origin', '*');
+  res.header('X-XSS-Protection' , 0 );
   next();
 });
 
-app.get('/resumable', function(req, res) {
-  var params = req.query;
-
-  var folder = params.path,
-      filename = params.resumableFilename,
-      filetype = params.resumableType,
-      chunkSize = parseInt(params.resumableChunkSize),
-      totalSize = parseInt(params.resumableTotalSize),
-      chunkNumber = parseInt(params.resumableChunkNumber),
-      numberOfChunks = Math.max(Math.floor(totalSize/(chunkSize*1.0)), 1);
-
-  var chunkFilename = getChunkFilename(filename, folder, chunkNumber);
-
-  checkFile(chunkFilename)
-  .then(function(filename) {
-    return mergeFiles(filename, filetype, numberOfChunks);
-  })
-  .then(function(filename) {
-    if(typeof(filename)!='undefined') {
-      res.status(200).send(`https://s3.amazonaws.com/${config.s3.Bucket}/${filename}`);
-    } else {
-      res.status(204).send(error);
-    }
-  })
-  .catch(function(error) {
-    res.status(500).send(error);
-  });
-});
-
 app.get('/bucketStatus', function(req, res){
-  res.header('Access-Control-Allow-Origin', '*');
-  res.send(
+  console.log('Recieved a ping on /bucketStatus');
+  res.send( 
    { 
     'allowedUsage': 2010001,
     'currentUsage': 150000,
+    'fileCount': 100,
     'bucketName': "S3_TEST_BUCKET"
    }
   );
 });
 
-app.post('/resumable', function(req, res) {
+app.get('/queueStatus', function(req, res, cb){``
 
-  var params = req.query;
+});
 
-  var folder = params.path,
-      filename = params.resumableFilename,
-      filetype = params.resumableType,
-      chunkSize = parseInt(params.resumableChunkSize),
-      totalSize = parseInt(params.resumableTotalSize),
-      chunkNumber = parseInt(params.resumableChunkNumber),
-      numberOfChunks = Math.max(Math.floor(totalSize/(chunkSize*1.0)), 1);
-
-  var file = req.files.file;
-  var chunkFilename = getChunkFilename(filename, folder, chunkNumber);
-
-  createFile({name: chunkFilename, type: filetype, buffer: fs.readFileSync(file.path)})
-  .then(function(filename) {
-    return mergeFiles(filename, filetype, numberOfChunks);
-  })
-  .then(function(filename) {
-    res.status(200).send(`https://s3.amazonaws.com/${config.s3.Bucket}/${filename}`);
-  })
-  .catch(function(error) {
-    res.status(500).send(error);
-  });
+app.post('/upload', function(req, res, cb){
+  console.log(req);
+  
 });
 
 app.listen(config.port, function() {
   console.log(`Server listening on port ${config.port}`);
 });
 
-wss.on('open', function open(){
-  console.log('socket got touched');
-});
+socket.listen(5050);

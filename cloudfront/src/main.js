@@ -19,7 +19,9 @@ Vue.use(VueSocketIO, {
       mutationPrefix: 'SOCKET_'
     }
 });
-Vue.use(VueAxios, axios);
+Vue.use(VueAxios, axios, {
+  baseURL: 'http://localhost:3000'
+});
 
 new Vue({
   store,
