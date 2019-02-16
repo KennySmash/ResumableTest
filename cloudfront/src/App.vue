@@ -4,7 +4,6 @@
       <b-navbar toggleable="lg" type="dark" variant="info">
         <b-navbar-brand href="#">CloudBurst</b-navbar-brand>
         <b-button @click="pingSocket()" class="ml-auto">Socket Server is <span v-if="socketConnected">📡</span><span v-if="!socketConnected">🛑</span></b-button>&nbsp;
-        <b-button class="" @click="getBucketObjects()">Bucket is UP</b-button>&nbsp;
         <b-button v-b-modal.settingsModal class="">⚙️</b-button>&nbsp;
         <b-button-group>
           <b-button>Bucket Usage :</b-button>
@@ -43,12 +42,15 @@
             <b-button href="#" variant="warning">Tidy List</b-button>
           </b-card>
           <b-list-group class="mb-2">
-            <b-list-group-item class='file-list' :key="file.id" v-for="file in myFiles">
+            <b-list-group-item class='file-list' :key="file.meta.id" v-for="file in myFiles">
               <div class="row">
-                <div class="col-12">
-                  {{ file.id }} : {{ file.name }} ({{ formatFileSize(file.size) }})<br/>
-                  <b-progress :value="file.progress"  :max="100" show-progress :animated='file.active'></b-progress>
-                  <b-button size='sm' @click="startUpload(file.id)">Start</b-button>
+                <div class="col-3">
+                  <b-button size='sm' @click="startUpload(file.meta.id)">Start</b-button>
+                  
+                </div>
+                <div class="col-9">
+                  {{ file.meta.id }} : {{ file.meta.name }} ({{ formatFileSize(file.meta.size) }})<br/>
+                  <b-progress :value="file.state.progress"  :max="100" show-progress :animated='file.state.active'></b-progress>
                 </div>
               </div>
             </b-list-group-item>
@@ -80,6 +82,7 @@
 import EventBus from './event-bus';
 import config from './config';
 import md5 from 'md5-file';
+import imageChunk from './imageChunk';
 
 var io = {};
 var FReader;
@@ -104,7 +107,17 @@ export default {
     },
     pong: function(){
       this.socketConnected = true;
-      console.log('server ping`d us');
+      // console.log('server ping`d us');
+    },
+    upload_begin: function(data){
+      console.log('upload_begin', data);
+      this.myFiles[data.file_id].state.active = true;
+      var firstChunk = {
+        data: this.myFiles[data.file_id].data[0], 
+        meta: this.myFiles[data.file_id].meta
+      }
+      console.log(firstChunk)
+      this.$socket.emit('upload_chunk', firstChunk);
     },
     /* 
     'upload_next'
@@ -132,41 +145,38 @@ export default {
         console.log(response.data);
       })
     },
+    pingSocket(){
+      this.$socket.emit('ping');
+    },
     startUpload(fileIndex){
       var SocketMain =  this.$socket;
       var theFile = this.myFiles[fileIndex];
-      FReader = new FileReader();
-      FReader.onload = function(evt){
-        SocketMain.emit('file_upload', 
-        { 
-          'Name' : theFilename,
-          'Data' : evt.target.result,
-        });
+      var openingObj = {
+        id: theFile.meta.id,
+        name: theFile.meta.name,
+        size: theFile.meta.size,
+        chunk_count: Object.keys(theFile.data).length,
       }
-      SocketMain.emit('start_upload', { 
-        'Name' : this.myFiles[fileIndex].name, 
-        'Size' : this.myFiles[fileIndex].size , 
-        'chunk_size' : this.chunkInBytes,
-        'ID' : this.myFiles[fileIndex].id,
-        'Paused': false
-      });
-    },
-    pingSocket(){
-      this.$socket.emit('ping');
+      SocketMain.emit('upload_start', openingObj);
     },
     onFileChange(e){
       for(var i = 0; i < e.target.files.length;i++){
         var currentFile = e.target.files[i];
           this.myFiles.push({
-            id: this.currentItems,
-            name: currentFile.name,
-            size: currentFile.size,
-            progress: 0,
-            active: false,
-            canceled: false,
-            paused: false,
-            checkSum: 'md5.md5File.sync(currentFile.path)',
-            file: currentFile
+            file: currentFile,
+            meta : {
+              id: this.currentItems,
+              name: currentFile.name,
+              size: currentFile.size,
+            },
+            state : {
+              progress: 0,
+              active: false,
+              canceled: false,
+              paused: false,
+            },
+            data : imageChunk.chunkImage(this.chunkInBytes, this.currentItems, currentFile)
+            
         });
         this.currentItems++;
       }
@@ -189,13 +199,17 @@ export default {
     queueFileSize: function(){
       var queueSize = 0;
       for(var i = 0; this.myFiles.length > i; i++){
-        queueSize += this.myFiles[i].size;
+        queueSize += this.myFiles[i].meta.size;
       }
       return queueSize;
     },
     chunkInBytes: function(){
       return this.chunkSize*1024;
+    },
+    arrSize: function(objArray){
+      return Object.keys(array).length;
     }
+
   },
   data(){
     return {
