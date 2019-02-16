@@ -106,17 +106,18 @@ export default {
       this.socketConnected = true;
       console.log('server ping`d us');
     },
-    MoreData: function(data){
-      console.log('tracking Data', data);
-      var Placement = data['Place'] * ( this.chunk_size * 1024 );
-      var myFileId = data['Meta'].ID;
-      var NewFile;
-      var fileName = data.Meta.name;
+    /* 
+    'upload_next'
+    server is asking for the next chunk with the file id and the chunk id
+    
+    'chunk_finished'
+    the server is saying the chunk of file id and chunk id is done
+    
+    'upload_done'
+    the file id provided is done so it can be removed from the transfer Q
+    and next in waiting can go in
 
-      NewFile = this.myFiles[myFileId].file.slice(Placement, Placement + Math.min(this.chunk_size*1024, data['Meta'].size - Placement));
-      FReader.readAsBinaryString(NewFile);
-      
-    }
+    */
   },
   methods: {
     getBucketStats(){
