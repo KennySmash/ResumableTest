@@ -32,16 +32,16 @@ app.use(function (req, res, next) {
 });
 
 app.get('/bucketStatus', function(req, res){
-  console.log('Getting Amazon Details', config.aws);
+  console.log('Getting Amazon Details');
   S3.listObjectsV2({'Bucket' : config.aws.bucket}, function(err, data){
     if (err){
       console.log('amazon error', err);
     } else {
-      tally(data, bucketSize, function(){
+      tally(data, bucketSize, function(usage){
         res.send({
           name: config.aws.bucket,
           allowedUsage: config.aws.usageLimit,
-          currentUsage: bucketSize
+          currentUsage: usage
         });
       });
     }

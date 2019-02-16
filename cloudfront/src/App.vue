@@ -17,7 +17,7 @@
         </b-button-group>
       </b-navbar>
     </div>
-    <div v-if="bucketStats.bucketName" class="container-fluid main-wrapper">
+    <div v-if="bucketStats.name" class="container-fluid main-wrapper">
       <div class='row'>
         <div class="col-md-6">
           <b-card v-if="isAbleToUpload" title="Dropzone"
@@ -72,7 +72,7 @@
         <span class="loader-inner"></span>
       </span></p>
     </div>
-    <h1 v-if="!bucketStats.bucketName" class="text-center">Loading Amazon Bucket Data</h1>
+    <h1 v-if="!bucketStats.name" class="text-center">Loading Amazon Bucket Data</h1>
   </div>
 </template>
 
