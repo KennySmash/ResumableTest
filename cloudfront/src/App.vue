@@ -102,9 +102,6 @@ export default {
     reconnecting: function() {
       this.socketConnected = false;
     },
-    pingBack: function(data) {
-      console.log('socketServer pinged me back with ', data);
-    },
     pong: function(){
       this.socketConnected = true;
       console.log('server ping`d us');
@@ -112,7 +109,7 @@ export default {
     MoreData: function(data){
       console.log('tracking Data', data);
       var Placement = data['Place'] * ( this.chunk_size * 1024 );
-      var myFileId = data['Meta'];
+      var myFileId = data['Meta'].ID;
       var NewFile;
       var fileName = data.Meta.name;
 
@@ -141,7 +138,7 @@ export default {
       FReader.onload = function(evt){
         SocketMain.emit('file_upload', 
         { 
-          'Name' : theFile.name,
+          'Name' : theFilename,
           'Data' : evt.target.result,
         });
       }
@@ -152,10 +149,6 @@ export default {
         'ID' : this.myFiles[fileIndex].id,
         'Paused': false
       });
-    },
-    connectSocket(){
-      console.log('Testing the Socket Connection');
-      this.$socket.emit('wake', {message:'Gettem Up!'});
     },
     pingSocket(){
       this.$socket.emit('ping');
