@@ -50,7 +50,7 @@
                 </div>
                 <div class="col-9">
                   {{ file.meta.id }} : {{ file.meta.name }} ({{ formatFileSize(file.meta.size) }})<br/>
-                  <b-progress :value="file.state.progress"  :max="100" show-progress :animated='file.state.active'></b-progress>
+                  <b-progress :value="progressBarVal(file.state.progress)"  :max="file.meta.size" show-progress :animated='file.state.active'></b-progress>
                 </div>
               </div>
             </b-list-group-item>
@@ -122,7 +122,18 @@ export default {
     /* 
     'upload_next'
     server is asking for the next chunk with the file id and the chunk id
-    
+    */
+    upload_next: function(data){
+      console.log('upload_next',data);
+      var thisFile = this.myFiles[data.file_id];
+      thisFile.state.progress++;
+      var nextChunk = {
+        data: this.myFiles[data.file_id].data[data.chunk_id], 
+        meta: this.myFiles[data.file_id].meta
+      }
+      this.$socket.emit('upload_chunk', nextChunk);
+    },
+   /*
     'chunk_finished'
     the server is saying the chunk of file id and chunk id is done
     
@@ -131,6 +142,11 @@ export default {
     and next in waiting can go in
 
     */
+   upload_done: function(data){
+     console.log('Ding Dong, Files Done',data);
+     this.myFiles[data.file_id].state.active = false;
+     this.myFiles[data.file_id].state.completed = false;
+   }
   },
   methods: {
     getBucketStats(){
@@ -174,6 +190,7 @@ export default {
               active: false,
               canceled: false,
               paused: false,
+              completed: false,
             },
             data : imageChunk.chunkImage(this.chunkInBytes, this.currentItems, currentFile)
             
@@ -190,6 +207,9 @@ export default {
               i = Math.floor(Math.log(bytes) / Math.log(k));
           return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
       },
+      progressBarVal: function(chunkCount){
+      return chunkCount * this.chunkSize * 1024;
+    }
 
   },
   computed: {
@@ -208,7 +228,8 @@ export default {
     },
     arrSize: function(objArray){
       return Object.keys(array).length;
-    }
+    },
+    
 
   },
   data(){
@@ -219,7 +240,6 @@ export default {
         currentUsage: 0,
       },
       chunkSize: 32,
-      percentMax: 100,
       socketConnected: false,
       currentItems: 0,
       rawFiles: [],

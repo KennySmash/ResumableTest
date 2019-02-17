@@ -13,7 +13,7 @@ var exportedModule = {
                 chunkArr[currChunk] = {
                     chunkId: currChunk,
                     file: fileId,
-                    data: FileObj.slice(offset, chunkSizeInByte)
+                    data: FileObj.slice(offset, offset+chunkSizeInByte)
                 }
                 currChunk++;
             }

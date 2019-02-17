@@ -89,11 +89,20 @@ io.on('connection', function(socket){
     var thisQ = transferQ[data.meta.name];
     thisQ.data[chunkID] = data.data;
     thisQ.currentChunk++;
-    log(thisQ);
+    // log(thisQ);
     
-    if (thisQ.currentChunk > thisQ.chunk_count){
+    if (thisQ.currentChunk == thisQ.chunk_count){
       log('this file is uploaded');
       socket.emit('upload_done', {file_id: thisQ.id});
+      var fileWriter = fs.createWriteStream('./.temp/'+thisQ.name);
+      var chunkArrLen = Object.keys(thisQ.data).length;
+      for(var index=0; chunkArrLen > index; index++){  
+        var buffer = Buffer.from( new Uint8Array(thisQ.data[index].data) );
+        fileWriter.write(buffer);
+      }
+      fileWriter.end();
+      thisQ = {};
+      transferCount--;
     } else {
       socket.emit('upload_next', {file_id: data.meta.id,chunkFin: chunkID, chunk_id: transferQ[data.meta.name].currentChunk});
     }
