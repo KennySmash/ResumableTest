@@ -87,7 +87,6 @@ import imageChunk from './imageChunk';
 var io = {};
 var FReader;
 
-
 export default {
   name: 'app',
   mounted() {
@@ -242,7 +241,8 @@ export default {
       chunkSize: 32,
       socketConnected: false,
       currentItems: 0,
-      rawFiles: [],
+      waitingList: [],
+      currentTransfers: [],
       myFiles: []
     }
   }
