@@ -7,7 +7,10 @@ AWS = require('aws-sdk'),
 cors = require('cors'),
 io = require('socket.io')(),
 chalk = require('chalk'),
-log = require('captains-log')();
+log = require('captains-log')(),
+crc32 = require('crc').crc32,
+s3transfer = require('./lib/uploadToBucket'),
+Promise = require('bluebird');
 
 var tally = require('./lib/tallyBucket');
 
@@ -49,6 +52,12 @@ app.get('/bucketStatus', function(req, res){
   });
 });
 
+app.get('/testcrc', function(req,res){
+  res.status(200).body({
+    'Am I a good check?': req.first === crc(req.second)
+  })
+});
+
 // Transfer Queue - an array that should only contain max 4 objects at a time
 // This can be scaled up by 1 per 100mb the heroku has available
 
@@ -66,14 +75,21 @@ io.on('connection', function(socket){
   */                   
   socket.on('upload_start', function(data){
     log.info(chalk.bgBlue('  upload_start  '), data);
-    if (transferCount < 4){
-      transferQ[data.name] = data;
-      transferQ[data.name].currentChunk = 0;
-      transferQ[data.name].data = {};
-      transferCount++;
-      socket.emit('upload_begin', {file_id: data.id});
+    // Check the filesize against the config max, return an error if its too big or wrong file type 
+    if (data.size < config.maxFileSize){
+      log('file size is fine', data.size,'/',config.maxFileSize);
+      if (transferCount < 4){
+        transferQ[data.name] = data;
+        transferQ[data.name].currentChunk = 0;
+        transferQ[data.name].data = {};
+        transferQ[data.name].mime = data.meta.mime;
+        transferCount++;
+        socket.emit('upload_begin', {file_id: data.id});
+      } else {
+        socket.emit('q_full');
+      }
     } else {
-      socket.emit('q_full');
+      socket.emit('file_too_big', {file_id: data.id});
     }
   });
 
@@ -84,25 +100,36 @@ io.on('connection', function(socket){
     and maybe send the request for the next chunk
   */
   socket.on('upload_chunk', function(data){
-    log(chalk.bgBlue('  upload_chunk  ', transferQ[data.meta.name]));
+    // log(chalk.bgBlue('  upload_chunk  ', transferQ[data.meta.name]));
     var chunkID = data.data.chunkId;
     var thisQ = transferQ[data.meta.name];
     thisQ.data[chunkID] = data.data;
     thisQ.currentChunk++;
-    // log(thisQ);
-    
-    if (thisQ.currentChunk == thisQ.chunk_count){
-      log('this file is uploaded');
+
+    if (data.state.paused){
+      // this is to prevent the next chunk from being asked from the client
+
+    } else if (thisQ.currentChunk == thisQ.chunk_count){
+      // log('this file is uploaded', thisQ);
       socket.emit('upload_done', {file_id: thisQ.id});
       var fileWriter = fs.createWriteStream('./.temp/'+thisQ.name);
       var chunkArrLen = Object.keys(thisQ.data).length;
+
       for(var index=0; chunkArrLen > index; index++){  
         var buffer = Buffer.from( new Uint8Array(thisQ.data[index].data) );
         fileWriter.write(buffer);
       }
-      fileWriter.end();
-      thisQ = {};
-      transferCount--;
+      fileWriter.end(function() {
+        log('Path is : ', chalk.red('./.temp/'+thisQ.name));
+        let uploadPromise = s3transfer(thisQ.name, '10/1/');
+        log('promise', uploadPromise);
+        uploadPromise.then(function(data){
+          log('emitting', data);
+          socket.emit('s3_done', data);
+        })
+      });
+      
+
     } else {
       socket.emit('upload_next', {file_id: data.meta.id,chunkFin: chunkID, chunk_id: transferQ[data.meta.name].currentChunk});
     }
@@ -114,7 +141,9 @@ io.on('connection', function(socket){
     the next chunk in the series, if not then silent error and ignore.
   */
   socket.on('upload_resume', function(data){
-    log(chalk.bgBlue('  upload_resume  '));
+    log(chalk.bgBlue('  upload_resume  ', data));
+    let nextChunk = transferQ[data.name].currentChunk;
+    socket.emit('upload_next', {file_id: data.file_id ,chunkFin: nextChunk-- , chunk_id: nextChunk });
   });
 
   /*

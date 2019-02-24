@@ -19,9 +19,11 @@
   "homepage": "https://github.com/eksoverzero/resumable#readme",
   "dependencies": {
     "aws-sdk": "^2.395.0",
+    "bluebird": "^3.5.3",
     "captains-log": "^2.0.1",
     "chalk": "^2.4.2",
     "cors": "^2.8.5",
+    "crc": "^3.8.0",
     "dotenv": "^6.2.0",
     "express": "^4.16.3",
     "fs": "0.0.1-security",

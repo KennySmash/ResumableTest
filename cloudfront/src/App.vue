@@ -35,7 +35,8 @@
           <b-card title="Global Controls"
               tag="article"
               class="mb-2">
-            <b-button href="#" @click="getQueue()" variant="dark">Get Server Queue</b-button>&nbsp;
+            <!-- <b-button href="#" @click="getQueue()" variant="dark">Get Server Queue</b-button>&nbsp;
+            <b-button href="#" @click="testcrc()" variant="dark">Test the CRC</b-button>&nbsp; -->
             <b-button href="#" variant="primary">Start Upload</b-button>&nbsp;
             <b-button href="#" variant="info">Pause All</b-button>&nbsp;
             <b-button href="#" variant="danger">Cancel All</b-button>&nbsp;
@@ -45,8 +46,9 @@
             <b-list-group-item class='file-list' :key="file.meta.id" v-for="file in myFiles">
               <div class="row">
                 <div class="col-3">
-                  <b-button size='sm' @click="startUpload(file.meta.id)">Start</b-button>
-                  
+                  <b-button size='sm' v-if="!file.state.active && !file.state.paused" @click="startUpload(file.meta.id)">Start</b-button>
+                  <b-button size='sm' v-if="file.state.active && !file.state.paused" variant='info' @click="pauseUpload(file.meta.id)">⏸️</b-button>
+                  <b-button size='sm' v-if="file.state.paused" variant='info' @click="resumeUpload(file.meta.id)">▶️</b-button>
                 </div>
                 <div class="col-9">
                   {{ file.meta.id }} : {{ file.meta.name }} ({{ formatFileSize(file.meta.size) }})<br/>
@@ -79,23 +81,22 @@
 </template>
 
 <script>
-import EventBus from './event-bus';
 import config from './config';
-import md5 from 'md5-file';
 import imageChunk from './imageChunk';
+import crc from 'crc/crc32';
 
-var io = {};
-var FReader;
+// var io = {};
 
 export default {
   name: 'app',
   mounted() {
     this.axios.defaults.baseURL = config.axios.baseURL;
-    this.getBucketStats();
+    
   },
   sockets: {
     connect: function() {
       console.log('socket connected - ID:', this.$socket.id);
+      this.getBucketStats();
       this.socketConnected = true;
     },
     disconnect: function() {
@@ -113,7 +114,8 @@ export default {
       this.myFiles[data.file_id].state.active = true;
       var firstChunk = {
         data: this.myFiles[data.file_id].data[0], 
-        meta: this.myFiles[data.file_id].meta
+        meta: this.myFiles[data.file_id].meta,
+        state: this.myFiles[data.file_id].state,
       }
       console.log(firstChunk)
       this.$socket.emit('upload_chunk', firstChunk);
@@ -128,7 +130,8 @@ export default {
       thisFile.state.progress++;
       var nextChunk = {
         data: this.myFiles[data.file_id].data[data.chunk_id], 
-        meta: this.myFiles[data.file_id].meta
+        meta: this.myFiles[data.file_id].meta,
+        state: this.myFiles[data.file_id].state
       }
       this.$socket.emit('upload_chunk', nextChunk);
     },
@@ -145,6 +148,10 @@ export default {
      console.log('Ding Dong, Files Done',data);
      this.myFiles[data.file_id].state.active = false;
      this.myFiles[data.file_id].state.completed = false;
+     this.getBucketStats();
+   },
+   s3_done: function(data){
+     console.log('S3 Upload is finished', data);
    }
   },
   methods: {
@@ -160,6 +167,9 @@ export default {
         console.log(response.data);
       })
     },
+    testcrc(){
+      this.$http.post('/testcrc', {'first': crc('Meep'), 'second': 'Meep'}).then((data)=>console.log(data));
+    },
     pingSocket(){
       this.$socket.emit('ping');
     },
@@ -171,8 +181,23 @@ export default {
         name: theFile.meta.name,
         size: theFile.meta.size,
         chunk_count: Object.keys(theFile.data).length,
+        meta: theFile.meta
       }
       SocketMain.emit('upload_start', openingObj);
+    },
+    pauseUpload: function(id){
+      this.myFiles[id].state.paused = true;
+      this.myFiles[id].state.active = false;
+    },
+    resumeUpload: function(id){
+      this.myFiles[id].state.paused = false;
+      this.myFiles[id].state.active = true;
+      let payload = {
+        file_id: id,
+        name: this.myFiles[id].meta.name
+      }
+      console.log('upload Resume', payload);
+      this.$socket.emit('upload_resume', payload);
     },
     onFileChange(e){
       for(var i = 0; i < e.target.files.length;i++){
@@ -191,9 +216,9 @@ export default {
               paused: false,
               completed: false,
             },
-            data : imageChunk.chunkImage(this.chunkInBytes, this.currentItems, currentFile)
-            
+            data : imageChunk.chunkImage(this.chunkInBytes, this.currentItems, currentFile),
         });
+        this.myFiles[i].meta.mime = this.myFiles[i].data[0].type;
         this.currentItems++;
       }
       e.target.files = null;
@@ -226,7 +251,7 @@ export default {
       return this.chunkSize*1024;
     },
     arrSize: function(objArray){
-      return Object.keys(array).length;
+      return Object.keys(objArray).length;
     },
     
 

@@ -7,7 +7,8 @@ var config = {
     bucket: process.env.BUCKET_NAME,
     usageLimit: parseInt(process.env.USAGE_LIMIT, 10)
   },
-  port: process.env.PORT || 3000
+  port: process.env.PORT || 3000,
+  maxFileSize: 124 * 1024 * 1024
 };
 
 module.exports = config;
