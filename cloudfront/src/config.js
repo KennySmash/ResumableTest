@@ -1,6 +1,6 @@
 var configs = {
     axios : {
-        baseURL : '//localhost:3000'
+        baseURL : window.location.origin
     }
 };
 

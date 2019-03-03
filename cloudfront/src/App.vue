@@ -3,7 +3,8 @@
     <div class="">
       <b-navbar toggleable="lg" type="dark" variant="info">
         <b-navbar-brand href="#">CloudBurst</b-navbar-brand>
-        <b-button @click="pingSocket()" class="ml-auto">Socket Server is <span v-if="socketConnected">📡</span><span v-if="!socketConnected">🛑</span></b-button>&nbsp;
+        <b-button @click="globalUpload(true)" class="ml-auto">Upload All</b-button>&nbsp;
+        <b-button @click="pingSocket()" >Socket Server is <span v-if="socketConnected">📡</span><span v-if="!socketConnected">🛑</span></b-button>&nbsp;
         <b-button v-b-modal.settingsModal class="">⚙️</b-button>&nbsp;
         <b-button-group>
           <b-button>Bucket Usage :</b-button>
@@ -30,29 +31,30 @@
           <b-card v-else title="You have reached your Bucket Size Limit">
             <p class="card-text">Please Contact Guy at text@example.com to organize more space<br/>Or remove Items from your upload queue</p>
           </b-card>
+
+          <b-card title="Completed Uploads" class='row' v-if="finishedFiles[0]">
+            <a class="mr-3 mb-2" target="_blank" :href="link" v-for="(link, linkSpot ) in finishedFiles" :key="linkSpot">
+              <b-img thumbnail width="150px" :src="link" :alt="link" />
+            </a>
+          </b-card>
+
         </div>
         <div class="col-md-6">
-          <b-card title="Global Controls"
-              tag="article"
-              class="mb-2">
-            <!-- <b-button href="#" @click="getQueue()" variant="dark">Get Server Queue</b-button>&nbsp;
-            <b-button href="#" @click="testcrc()" variant="dark">Test the CRC</b-button>&nbsp; -->
-            <b-button href="#" variant="primary">Start Upload</b-button>&nbsp;
-            <b-button href="#" variant="info">Pause All</b-button>&nbsp;
-            <b-button href="#" variant="danger">Cancel All</b-button>&nbsp;
-            <b-button href="#" variant="warning">Tidy List</b-button>
-          </b-card>
           <b-list-group class="mb-2">
-            <b-list-group-item class='file-list' :key="file.meta.id" v-for="file in myFiles">
+            <b-list-group-item v-if="!file.state.completed" class='file-list' :key="file.meta.id" v-for="file in myFiles">
               <div class="row">
                 <div class="col-3">
-                  <b-button size='sm' v-if="!file.state.active && !file.state.paused" @click="startUpload(file.meta.id)">Start</b-button>
+                  <b-button size='sm' v-if="!file.state.active && !file.state.paused && !file.state.started" @click="startUpload(file.meta.id)">Start</b-button>
                   <b-button size='sm' v-if="file.state.active && !file.state.paused" variant='info' @click="pauseUpload(file.meta.id)">⏸️</b-button>
                   <b-button size='sm' v-if="file.state.paused" variant='info' @click="resumeUpload(file.meta.id)">▶️</b-button>
                 </div>
                 <div class="col-9">
                   {{ file.meta.id }} : {{ file.meta.name }} ({{ formatFileSize(file.meta.size) }})<br/>
                   <b-progress :value="progressBarVal(file.state.progress)"  :max="file.meta.size" show-progress :animated='file.state.active'></b-progress>
+                  <a v-if="file.meta.uploadPath" :href="file.meta.uploadPath">
+                    <b-img thumbnail fluid :src="file.meta.uploadPath" :alt="file.meta.name" />
+                  </a>
+                  
                 </div>
               </div>
             </b-list-group-item>
@@ -68,6 +70,7 @@
               <input type="text" class="form-control" id="chunkSize" v-model.number="chunkSize" />
             </div> 
           </div>
+          
         </b-modal>
     </div>
     <div v-else class="d-flex justify-content-center align-content-center p-5">
@@ -81,21 +84,21 @@
 </template>
 
 <script>
-import config from './config';
+// import config from './config';
 import imageChunk from './imageChunk';
-import crc from 'crc/crc32';
+// import crc from 'crc/crc32';
 
 // var io = {};
 
 export default {
   name: 'app',
   mounted() {
-    this.axios.defaults.baseURL = config.axios.baseURL;
+    this.axios.defaults.baseURL = '//' + window.location.hostname + ':3000';
     
   },
   sockets: {
     connect: function() {
-      console.log('socket connected - ID:', this.$socket.id);
+      // console.log('socket connected - ID:', this.$socket.id);
       this.getBucketStats();
       this.socketConnected = true;
     },
@@ -117,7 +120,7 @@ export default {
         meta: this.myFiles[data.file_id].meta,
         state: this.myFiles[data.file_id].state,
       }
-      console.log(firstChunk)
+      // console.log(firstChunk)
       this.$socket.emit('upload_chunk', firstChunk);
     },
     /* 
@@ -125,7 +128,7 @@ export default {
     server is asking for the next chunk with the file id and the chunk id
     */
     upload_next: function(data){
-      console.log('upload_next',data);
+      // console.log('upload_next',data);
       var thisFile = this.myFiles[data.file_id];
       thisFile.state.progress++;
       var nextChunk = {
@@ -146,12 +149,21 @@ export default {
     */
    upload_done: function(data){
      console.log('Ding Dong, Files Done',data);
-     this.myFiles[data.file_id].state.active = false;
-     this.myFiles[data.file_id].state.completed = false;
+     let thisFile = this.myFiles[data.file_id];
      this.getBucketStats();
    },
    s3_done: function(data){
      console.log('S3 Upload is finished', data);
+     var search = this.waitingList.indexOf(data.meta.id);
+     if (search > -1){
+       this.waitingList.splice(search, 1);
+     }
+      this.myFiles[data.meta.id].state.completed = true;
+      if(this.finishedFiles.indexOf(data.data.response.Location) === -1){
+        this.finishedFiles.push(data.data.response.Location)
+      }
+      this.transferSlots++;
+
    }
   },
   methods: {
@@ -161,19 +173,27 @@ export default {
         this.bucketStats = response.data;
       })
     },
-    getQueue(){
-      this.$http.get('/queueStatus')
-      .then((response) => {
-        console.log(response.data);
-      })
-    },
-    testcrc(){
-      this.$http.post('/testcrc', {'first': crc('Meep'), 'second': 'Meep'}).then((data)=>console.log(data));
-    },
     pingSocket(){
       this.$socket.emit('ping');
     },
+    queueUpload(fileIndex){
+      this.waitingList.push(fileIndex);
+    },
+    startQueue(){
+      this.transferSlots = this.transferCap;
+    },
+    globalUpload(i){
+      // console.log('global start', i);
+      this.myFiles.forEach((item) => {
+        if (!item.state.completed){
+          this.queueUpload(item.meta.id);  
+        }
+      })
+      this.startQueue();
+    },
     startUpload(fileIndex){
+      console.log('starting Upload of ID:', fileIndex);
+      this.transferSlots--;
       var SocketMain =  this.$socket;
       var theFile = this.myFiles[fileIndex];
       var openingObj = {
@@ -183,7 +203,14 @@ export default {
         chunk_count: Object.keys(theFile.data).length,
         meta: theFile.meta
       }
-      SocketMain.emit('upload_start', openingObj);
+      if(!theFile.state.completed && !theFile.state.started){
+        this.myFiles[fileIndex].state.started = true;
+        this.myFiles[fileIndex].state.active = true;
+        SocketMain.emit('upload_start', openingObj);
+      } else {
+        console.warn('client tried to reupload a file or a started file');
+        this.transferSlots++;
+      }
     },
     pauseUpload: function(id){
       this.myFiles[id].state.paused = true;
@@ -196,7 +223,7 @@ export default {
         file_id: id,
         name: this.myFiles[id].meta.name
       }
-      console.log('upload Resume', payload);
+      // console.log('upload Resume', payload);
       this.$socket.emit('upload_resume', payload);
     },
     onFileChange(e){
@@ -208,6 +235,7 @@ export default {
               id: this.currentItems,
               name: currentFile.name,
               size: currentFile.size,
+              uploadPath: ""
             },
             state : {
               progress: 0,
@@ -215,6 +243,7 @@ export default {
               canceled: false,
               paused: false,
               completed: false,
+              started: false,
             },
             data : imageChunk.chunkImage(this.chunkInBytes, this.currentItems, currentFile),
         });
@@ -223,15 +252,15 @@ export default {
       }
       e.target.files = null;
     },
-      formatFileSize(bytes,decimalPoint){
-        if(bytes == 0) return '0 Bytes';
-          var k = 1000,
-              dm = decimalPoint || 2,
-              sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'],
-              i = Math.floor(Math.log(bytes) / Math.log(k));
-          return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-      },
-      progressBarVal: function(chunkCount){
+    formatFileSize(bytes,decimalPoint){
+      if(bytes == 0) return '0 Bytes';
+        var k = 1000,
+            dm = decimalPoint || 2,
+            sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'],
+            i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    },
+    progressBarVal: function(chunkCount){
       return chunkCount * this.chunkSize * 1024;
     }
 
@@ -243,18 +272,22 @@ export default {
     queueFileSize: function(){
       var queueSize = 0;
       for(var i = 0; this.myFiles.length > i; i++){
-        queueSize += this.myFiles[i].meta.size;
+        if (this.myFiles[i].state.completed !== true){
+          queueSize += this.myFiles[i].meta.size;
+        }
       }
       return queueSize;
     },
     chunkInBytes: function(){
       return this.chunkSize*1024;
     },
-    arrSize: function(objArray){
-      return Object.keys(objArray).length;
+    currentQueSize: function(){
+      return this.waitingList.length;
     },
+    currentTransferSize: function(){
+      return this.currentTransfers.length;
+    }
     
-
   },
   data(){
     return {
@@ -266,9 +299,30 @@ export default {
       chunkSize: 32,
       socketConnected: false,
       currentItems: 0,
+      transferCap: 4,
+      transferSlots: 0,
+      waitingListNumber: 0,
       waitingList: [],
-      currentTransfers: [],
-      myFiles: []
+      myFiles: [],
+      finishedFiles: [],
+    }
+  },
+  watch: {
+    waitingList: function(newVal){
+      if(newVal.length > 0){
+        this.startUpload(newVal[0]);
+      }
+    },
+    transferSlots: function(newVal, oldVal){
+      console.log('transfer Slots changed from ', oldVal, ' to ', newVal)
+      for(var slots = this.transferSlots; slots > 0; slots--){
+        if(this.waitingList.length > 1){
+          this.startUpload(this.waitingList[0]);
+          this.waitingList.splice(0, 1);
+        } else {
+          console.warn('The Transfer Queue is full');
+        }
+      }
     }
   }
 }

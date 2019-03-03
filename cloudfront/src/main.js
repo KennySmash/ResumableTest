@@ -10,10 +10,11 @@ import VueSocketio from 'vue-socket.io-extended'
 import io from 'socket.io-client'
 
 Vue.config.productionTip = false;
+Vue.config.devtools = true;
 
 Vue.use(BootstrapVue);
 
-Vue.use(VueSocketio, io('//localhost:5050'));
+Vue.use(VueSocketio, io('//' + window.location.hostname + ':5050'));
 
 Vue.use(VueAxios, axios);
 

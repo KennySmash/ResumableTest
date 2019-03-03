@@ -1,4 +1,4 @@
-var exportedModule = {
+export default {
     /*
         Chunks an Image and returns an Objarr of chunks
     */
@@ -18,12 +18,7 @@ var exportedModule = {
                 }
                 currChunk++;
             }
-        }
-        
+        }   
         return chunkArr
     }
-
 }
-
-
-module.exports = exportedModule;

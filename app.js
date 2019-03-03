@@ -10,7 +10,8 @@ chalk = require('chalk'),
 log = require('captains-log')(),
 crc32 = require('crc').crc32,
 s3transfer = require('./lib/uploadToBucket'),
-Promise = require('bluebird');
+Promise = require('bluebird'),
+util = require('util');
 
 var tally = require('./lib/tallyBucket');
 
@@ -36,7 +37,7 @@ app.use(function (req, res, next) {
 });
 
 app.get('/bucketStatus', function(req, res){
-  log('Getting Amazon Details');
+  // log('Getting Amazon Details');
   S3.listObjectsV2({'Bucket' : config.aws.bucket}, function(err, data){
     if (err){
       log('amazon error', err);
@@ -78,16 +79,12 @@ io.on('connection', function(socket){
     // Check the filesize against the config max, return an error if its too big or wrong file type 
     if (data.size < config.maxFileSize){
       log('file size is fine', data.size,'/',config.maxFileSize);
-      if (transferCount < 4){
-        transferQ[data.name] = data;
-        transferQ[data.name].currentChunk = 0;
-        transferQ[data.name].data = {};
-        transferQ[data.name].mime = data.meta.mime;
-        transferCount++;
-        socket.emit('upload_begin', {file_id: data.id});
-      } else {
-        socket.emit('q_full');
-      }
+      transferQ[data.name] = data;
+      transferQ[data.name].currentChunk = 0;
+      transferQ[data.name].data = {};
+      transferQ[data.name].mime = data.meta.mime;
+      socket.emit('upload_begin', {file_id: data.id});
+      
     } else {
       socket.emit('file_too_big', {file_id: data.id});
     }
@@ -101,37 +98,44 @@ io.on('connection', function(socket){
   */
   socket.on('upload_chunk', function(data){
     // log(chalk.bgBlue('  upload_chunk  ', transferQ[data.meta.name]));
-    var chunkID = data.data.chunkId;
-    var thisQ = transferQ[data.meta.name];
-    thisQ.data[chunkID] = data.data;
-    thisQ.currentChunk++;
+    log('chunk Inspect',util.inspect(data));
+    if (data.data){
+      var chunkID = data.data.chunkId;
+      var thisQ = transferQ[data.meta.name];
+      thisQ.data[chunkID] = data.data;
+      thisQ.currentChunk++;
 
-    if (data.state.paused){
-      // this is to prevent the next chunk from being asked from the client
-
-    } else if (thisQ.currentChunk == thisQ.chunk_count){
-      // log('this file is uploaded', thisQ);
-      socket.emit('upload_done', {file_id: thisQ.id});
-      var fileWriter = fs.createWriteStream('./.temp/'+thisQ.name);
-      var chunkArrLen = Object.keys(thisQ.data).length;
-
-      for(var index=0; chunkArrLen > index; index++){  
-        var buffer = Buffer.from( new Uint8Array(thisQ.data[index].data) );
-        fileWriter.write(buffer);
-      }
-      fileWriter.end(function() {
-        log('Path is : ', chalk.red('./.temp/'+thisQ.name));
-        let uploadPromise = s3transfer(thisQ.name, '10/1/');
-        log('promise', uploadPromise);
-        uploadPromise.then(function(data){
-          log('emitting', data);
-          socket.emit('s3_done', data);
-        })
-      });
       
-
-    } else {
-      socket.emit('upload_next', {file_id: data.meta.id,chunkFin: chunkID, chunk_id: transferQ[data.meta.name].currentChunk});
+      if (data.state.paused){
+        // this is to prevent the next chunk from being asked from the client
+        
+      } else if (thisQ.currentChunk == thisQ.chunk_count){
+        // log('this file is uploaded', thisQ);
+        socket.emit('upload_done', {file_id: thisQ.id});
+        var fileWriter = fs.createWriteStream('./.temp/'+thisQ.name);
+        var chunkArrLen = Object.keys(thisQ.data).length;
+        
+        for(var index=0; chunkArrLen > index; index++){  
+          var buffer = Buffer.from( new Uint8Array(thisQ.data[index].data) );
+          fileWriter.write(buffer);
+        }
+        fileWriter.end(function() {
+          // log('Path is : ', chalk.red('./.temp/'+thisQ.name));
+          let uploadPromise = s3transfer(thisQ.name, '10/1/');
+          // log('promise', uploadPromise);
+          uploadPromise.then(function(data){
+            // log('emitting', data);
+            socket.emit('s3_done', {data: data, meta: thisQ.meta});
+            fs.unlink('./.temp/'+data.localFile, function(){
+              log('MEEP Yeet', data.localFile, 'Was Deleted after upload');
+            });
+          })
+        });
+        
+        
+      } else {
+        socket.emit('upload_next', {file_id: data.meta.id,chunkFin: chunkID, chunk_id: transferQ[data.meta.name].currentChunk});
+      }
     }
 
   });
