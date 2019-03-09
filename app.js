@@ -155,8 +155,8 @@ io.on('connection', function(socket){
 })
 
 
-app.listen(80, function() {
-  log(`Server listening on port ${config.port}`);
+app.listen(process.env.PORT || 3000, function() {
+  log(`Server listening on port ${process.env.PORT}`);
   log('Socket Server started on 5050');
 });
 

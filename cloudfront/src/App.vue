@@ -93,7 +93,7 @@ import imageChunk from './imageChunk';
 export default {
   name: 'app',
   mounted() {
-    this.axios.defaults.baseURL = '//' + window.location.hostname + ':80';
+    this.axios.defaults.baseURL = '//' + window.location.hostname + ':' + (process.env.PORT || '3000');
     
   },
   sockets: {
