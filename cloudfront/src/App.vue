@@ -18,7 +18,7 @@
       </b-navbar>
     </div>
     <div v-if="bucketStats.name" class="container-fluid main-wrapper">
-      <div class='row'>
+      <div class='row mb-3'>
         <div class="col-md-6">
           <b-card v-if="isAbleToUpload" title="Dropzone"
               tag="article"
@@ -32,9 +32,9 @@
             <p class="card-text">Please Contact Guy at text@example.com to organize more space<br/>Or remove Items from your upload queue</p>
           </b-card>
 
-          <b-card title="Completed Uploads" class='row' v-if="finishedFiles[0]">
-            <a class="mr-3 mb-2" target="_blank" :href="link" v-for="(link, linkSpot ) in finishedFiles" :key="linkSpot">
-              <b-img thumbnail width="150px" :src="link" :alt="link" />
+          <b-card title="Completed Uploads" class='mt-3' v-if="finishedFiles[0]">
+            <a class="mr-3 mb-2 d-block" target="_blank" :href="link" v-for="(link, linkSpot ) in finishedFiles" :key="linkSpot">
+              {{ linkSpot }} : {{ link }}
             </a>
           </b-card>
 
@@ -93,7 +93,7 @@ import imageChunk from './imageChunk';
 export default {
   name: 'app',
   mounted() {
-    this.axios.defaults.baseURL = '//' + window.location.hostname + ':3000';
+    this.axios.defaults.baseURL = '//' + window.location.hostname + ':20277';
     
   },
   sockets: {
@@ -113,7 +113,7 @@ export default {
       // console.log('server ping`d us');
     },
     upload_begin: function(data){
-      console.log('upload_begin', data);
+      // console.log('upload_begin', data);
       this.myFiles[data.file_id].state.active = true;
       var firstChunk = {
         data: this.myFiles[data.file_id].data[0], 
@@ -148,12 +148,12 @@ export default {
 
     */
    upload_done: function(data){
-     console.log('Ding Dong, Files Done',data);
+    //  console.log('Ding Dong, Files Done',data);
      let thisFile = this.myFiles[data.file_id];
      this.getBucketStats();
    },
    s3_done: function(data){
-     console.log('S3 Upload is finished', data);
+    //  console.log('S3 Upload is finished', data);
      var search = this.waitingList.indexOf(data.meta.id);
      if (search > -1){
        this.waitingList.splice(search, 1);
@@ -163,6 +163,18 @@ export default {
         this.finishedFiles.push(data.data.response.Location)
       }
       this.transferSlots++;
+
+   },
+   file_too_big: function(data){
+     console.error('File was too big', data);
+     this.transferSlots++;
+     var search = this.waitingList.indexOf(data.file_id);
+     if (search > -1){
+       this.waitingList.splice(search, 1);
+     }
+
+     this.myFiles.state.canceled = true;
+
 
    }
   },
@@ -192,7 +204,7 @@ export default {
       this.startQueue();
     },
     startUpload(fileIndex){
-      console.log('starting Upload of ID:', fileIndex);
+      // console.log('starting Upload of ID:', fileIndex);
       this.transferSlots--;
       var SocketMain =  this.$socket;
       var theFile = this.myFiles[fileIndex];
@@ -208,7 +220,7 @@ export default {
         this.myFiles[fileIndex].state.active = true;
         SocketMain.emit('upload_start', openingObj);
       } else {
-        console.warn('client tried to reupload a file or a started file');
+        // console.warn('client tried to reupload a file or a started file');
         this.transferSlots++;
       }
     },
@@ -314,13 +326,13 @@ export default {
       }
     },
     transferSlots: function(newVal, oldVal){
-      console.log('transfer Slots changed from ', oldVal, ' to ', newVal)
+      // console.log('transfer Slots changed from ', oldVal, ' to ', newVal)
       for(var slots = this.transferSlots; slots > 0; slots--){
         if(this.waitingList.length > 1){
           this.startUpload(this.waitingList[0]);
           this.waitingList.splice(0, 1);
         } else {
-          console.warn('The Transfer Queue is full');
+          // console.warn('The Transfer Queue is full');
         }
       }
     }

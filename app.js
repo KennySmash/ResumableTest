@@ -53,14 +53,6 @@ app.get('/bucketStatus', function(req, res){
   });
 });
 
-app.get('/testcrc', function(req,res){
-  res.status(200).body({
-    'Am I a good check?': req.first === crc(req.second)
-  })
-});
-
-// Transfer Queue - an array that should only contain max 4 objects at a time
-// This can be scaled up by 1 per 100mb the heroku has available
 
 var transferQ = {};
 var transferCount = 0;
@@ -75,7 +67,7 @@ io.on('connection', function(socket){
      the first chunk from the client
   */                   
   socket.on('upload_start', function(data){
-    log.info(chalk.bgBlue('  upload_start  '), data);
+    //log.info(chalk.bgBlue('  upload_start  '), data);
     // Check the filesize against the config max, return an error if its too big or wrong file type 
     if (data.size < config.maxFileSize){
       log('file size is fine', data.size,'/',config.maxFileSize);
@@ -86,6 +78,7 @@ io.on('connection', function(socket){
       socket.emit('upload_begin', {file_id: data.id});
       
     } else {
+      log('file size is too big', data.size,'/',config.maxFileSize);
       socket.emit('file_too_big', {file_id: data.id});
     }
   });
@@ -98,7 +91,7 @@ io.on('connection', function(socket){
   */
   socket.on('upload_chunk', function(data){
     // log(chalk.bgBlue('  upload_chunk  ', transferQ[data.meta.name]));
-    log('chunk Inspect',util.inspect(data));
+    // log('chunk Inspect',util.inspect(data));
     if (data.data){
       var chunkID = data.data.chunkId;
       var thisQ = transferQ[data.meta.name];
@@ -127,7 +120,7 @@ io.on('connection', function(socket){
             // log('emitting', data);
             socket.emit('s3_done', {data: data, meta: thisQ.meta});
             fs.unlink('./.temp/'+data.localFile, function(){
-              log('MEEP Yeet', data.localFile, 'Was Deleted after upload');
+              log('Yay, ', data.localFile, 'Was Deleted after upload');
             });
           })
         });
@@ -145,7 +138,7 @@ io.on('connection', function(socket){
     the next chunk in the series, if not then silent error and ignore.
   */
   socket.on('upload_resume', function(data){
-    log(chalk.bgBlue('  upload_resume  ', data));
+    //log(chalk.bgBlue('  upload_resume  ', data));
     let nextChunk = transferQ[data.name].currentChunk;
     socket.emit('upload_next', {file_id: data.file_id ,chunkFin: nextChunk-- , chunk_id: nextChunk });
   });
@@ -155,7 +148,7 @@ io.on('connection', function(socket){
     Pongs the client to update the status  
   */
   socket.on('ping', function(){
-    log('got Pinged, Gonna Pong');
+    // log('got Pinged, Gonna Pong');
     socket.emit('pong')
   });
 
@@ -164,6 +157,7 @@ io.on('connection', function(socket){
 
 app.listen(config.port, function() {
   log(`Server listening on port ${config.port}`);
+  log('Socket Server started on 5050');
 });
 
 io.listen(5050, () => log('Socket Server started on 5050'));

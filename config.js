@@ -8,7 +8,7 @@ var config = {
     usageLimit: parseInt(process.env.USAGE_LIMIT, 10)
   },
   port: process.env.PORT || 3000,
-  maxFileSize: 124 * 1024 * 1024
+  maxFileSize: 1 * 1024 * 1024
 };
 
 module.exports = config;
